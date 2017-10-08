@@ -12,7 +12,8 @@ import Data.Nullable (Nullable, toMaybe)
 import Data.Function.Uncurried (Fn2, Fn4, runFn2, runFn4)
 import Data.StrMap (StrMap)
 import Data.Maybe (Maybe (..))
-import Control.Monad.Aff (Aff, makeAff)
+import Data.Either (Either (..))
+import Control.Monad.Aff (Aff, makeAff, nonCanceler)
 import Control.Monad.Eff (kind Effect, Eff)
 import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, EffFn4, EffFn3, runEffFn3, runEffFn4, mkEffFn1, mkEffFn2)
 import Control.Monad.Eff.Exception (Error, error)
@@ -63,9 +64,11 @@ getInterface :: forall eff
               . Service -> ObjectPath -> InterfaceName
              -> Aff (dbus :: DBUS | eff) Interface
 getInterface s o i =
-  makeAff \onError onSuccess -> runEffFn4 getInterfaceImpl s o i $ mkEffFn2 \mE i' -> case toMaybe mE of
-    Nothing -> onSuccess i'
-    Just e  -> onError e
+  makeAff \evoke -> do
+    runEffFn4 getInterfaceImpl s o i $ mkEffFn2 \mE i' -> case toMaybe mE of
+      Nothing -> evoke (Right i')
+      Just e  -> evoke (Left e)
+    pure nonCanceler
 
 
 foreign import callImpl :: forall eff
@@ -83,13 +86,13 @@ call :: forall eff result
      => Interface -> MemberName -> Array Variant
      -> Aff (dbus :: DBUS | eff) result
 call i m@(MemberName m') vs =
-  makeAff \onError onSuccess ->
+  makeAff \evoke -> do
     let result = runFn4 callImpl i m vs $ mkEffFn2 \e r -> case fromVariant r of
-                   Nothing -> onError $ error $ "Could not marshall return variant into type"
-                   Just r' -> onSuccess r'
-    in  if result
-           then pure unit
-           else onError $ error $ "Member name " <> m' <> " does not exist in interface."
+                   Nothing -> evoke $ Left $ error $ "Could not marshall return variant into type"
+                   Just r' -> evoke (Right r')
+    when result $
+      evoke $ Left $ error $ "Member name " <> m' <> " does not exist in interface."
+    pure nonCanceler
 
 
 foreign import onImpl :: forall eff
