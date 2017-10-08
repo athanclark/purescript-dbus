@@ -1,0 +1,26 @@
+{
+  "name": "purescript-dbus",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/athanclark/purescript-dbus.git"
+  },
+  "author": "Athan Clark <athan.clark@gmail.com>",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/athanclark/purescript-dbus/issues"
+  },
+  "homepage": "https://github.com/athanclark/purescript-dbus#readme",
+  "dependencies": {
+    "dbus-native": "^0.2.3",
+    "decimal.js": "^7.3.0"
+  }
+}
