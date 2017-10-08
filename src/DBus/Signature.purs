@@ -9,6 +9,7 @@ import Data.Maybe (Maybe (..))
 import Data.Tuple (Tuple (..))
 import Data.Array as Array
 import Data.Foreign (toForeign, isArray)
+import Data.Foreign as F
 import Data.Decimal (isInteger)
 import Data.Map (Map)
 import Data.Map as Map
@@ -17,7 +18,6 @@ import Data.Tuple.Native (T4, t4)
 import Control.Monad.Eff (Eff, kind Effect)
 import Control.Monad.Eff.Uncurried (EffFn1)
 import Type.Proxy (Proxy (..))
-import FFI.Util (typeof)
 import Unsafe.Coerce (unsafeCoerce)
 
 
@@ -64,26 +64,26 @@ class IsVariant a where
 instance isVariantBoolean :: IsVariant Boolean where
   toVariant = unsafeCoerce
   fromVariant x
-    | typeof x == "boolean" = Just (unsafeCoerce x)
-    | otherwise             = Nothing
+    | F.typeOf (toForeign x) == "boolean" = Just (unsafeCoerce x)
+    | otherwise                           = Nothing
 
 instance isVariantInt :: IsVariant Int where
   toVariant = unsafeCoerce
   fromVariant x
-    | typeof x == "number" && isInteger (unsafeCoerce x) = Just (unsafeCoerce x)
-    | otherwise                                          = Nothing
+    | F.typeOf (toForeign x) == "number" && isInteger (unsafeCoerce x) = Just (unsafeCoerce x)
+    | otherwise                                                        = Nothing
 
 instance isVariantNumber :: IsVariant Number where
   toVariant = unsafeCoerce
   fromVariant x
-    | typeof x == "number" && not (isInteger $ unsafeCoerce x) = Just (unsafeCoerce x)
-    | otherwise                                                = Nothing
+    | F.typeOf (toForeign x) == "number" && not (isInteger $ unsafeCoerce x) = Just (unsafeCoerce x)
+    | otherwise                                                              = Nothing
 
 instance isVariantString :: IsVariant String where
   toVariant = unsafeCoerce
   fromVariant x
-    | typeof x == "string" = Just (unsafeCoerce x)
-    | otherwise            = Nothing
+    | F.typeOf (toForeign x) == "string" = Just (unsafeCoerce x)
+    | otherwise                          = Nothing
 
 instance isVariantArray :: IsVariant a => IsVariant (Array a) where
   toVariant = unsafeCoerce

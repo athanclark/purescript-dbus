@@ -4,7 +4,7 @@ module DBus
   , module Sig
   ) where
 
-import DBus.Signature (Variant, Signature, MethodDesc, class IsValue, class IsVariant, fromVariant)
+import DBus.Signature (Variant, Signature, MethodDesc, class IsVariant, fromVariant)
 import DBus.Signature as Sig
 
 import Prelude
