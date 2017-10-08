@@ -1,10 +1,10 @@
 module DBus
-  ( connectSession, getService, getInterface, call, signalDesc, SignalDesc, exportInterface
+  ( connectSession, getService, getInterface, call, on, signalDesc, SignalDesc, exportInterface
   , InterfaceName (..), ObjectPath (..), MemberName (..), BusName (..), DBUS, Client, Service, Interface, InterfaceDesc
   , module Sig
   ) where
 
-import DBus.Signature (Variant, Signature, MethodDesc, class IsVariant, fromVariant)
+import DBus.Signature (Variant, Signature, MethodDesc, class IsValue, class IsVariant, fromVariant)
 import DBus.Signature as Sig
 
 import Prelude
@@ -12,9 +12,10 @@ import Data.Nullable (Nullable, toMaybe)
 import Data.Function.Uncurried (Fn2, Fn4, runFn2, runFn4)
 import Data.StrMap (StrMap)
 import Data.Maybe (Maybe (..))
+import Control.Monad.Aff (Aff, makeAff)
 import Control.Monad.Eff (kind Effect, Eff)
-import Control.Monad.Eff.Uncurried (EffFn2, EffFn4, EffFn3, runEffFn3, runEffFn4, mkEffFn2)
-import Control.Monad.Eff.Exception (Error)
+import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, EffFn4, EffFn3, runEffFn3, runEffFn4, mkEffFn1, mkEffFn2)
+import Control.Monad.Eff.Exception (Error, error)
 
 
 
@@ -60,9 +61,11 @@ foreign import getInterfaceImpl :: forall eff
 
 getInterface :: forall eff
               . Service -> ObjectPath -> InterfaceName
-             -> (Maybe Error -> Interface -> Eff (dbus :: DBUS | eff) Unit)
-             -> Eff (dbus :: DBUS | eff) Unit
-getInterface s o i f = runEffFn4 getInterfaceImpl s o i (mkEffFn2 \e i' -> f (toMaybe e) i')
+             -> Aff (dbus :: DBUS | eff) Interface
+getInterface s o i =
+  makeAff \onError onSuccess -> runEffFn4 getInterfaceImpl s o i $ mkEffFn2 \mE i' -> case toMaybe mE of
+    Nothing -> onSuccess i'
+    Just e  -> onError e
 
 
 foreign import callImpl :: forall eff
@@ -74,14 +77,33 @@ foreign import callImpl :: forall eff
                              Boolean
 
 
+
 call :: forall eff result
       . IsVariant result
      => Interface -> MemberName -> Array Variant
-     -> (Maybe Error -> result -> Eff (dbus :: DBUS | eff) Unit)
-     -> Boolean
-call i m vs f = runFn4 callImpl i m vs $ mkEffFn2 \e r -> case fromVariant r of
-  Nothing -> pure unit
-  Just r' -> f (toMaybe e) r'
+     -> Aff (dbus :: DBUS | eff) result
+call i m@(MemberName m') vs =
+  makeAff \onError onSuccess ->
+    let result = runFn4 callImpl i m vs $ mkEffFn2 \e r -> case fromVariant r of
+                   Nothing -> onError $ error $ "Could not marshall return variant into type"
+                   Just r' -> onSuccess r'
+    in  if result
+           then pure unit
+           else onError $ error $ "Member name " <> m' <> " does not exist in interface."
+
+
+foreign import onImpl :: forall eff
+                       . EffFn3 (dbus :: DBUS | eff) Interface MemberName (EffFn1 (dbus :: DBUS | eff) Variant Unit) Unit
+
+on :: forall eff a
+    . IsVariant a
+   => Interface -> MemberName
+   -> (a -> Eff (dbus :: DBUS | eff) Unit)
+   -> Eff (dbus :: DBUS | eff) Unit
+on i m f =
+  runEffFn3 onImpl i m $ mkEffFn1 \v -> case fromVariant v of
+    Nothing -> pure unit
+    Just a -> f a
 
 
 foreign import data SignalDesc :: Type

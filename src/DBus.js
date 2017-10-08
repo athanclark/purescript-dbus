@@ -30,6 +30,10 @@ exports.callImpl = function callImpl (i,m,xs,f) {
   }
 };
 
+exports.onImpl = function onImpl (i,m,f) {
+  i.on(m,f);
+};
+
 exports.signalDescImpl = function signalDescImpl (s,sd) {
   return [s,sd];
 };

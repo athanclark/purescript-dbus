@@ -4,8 +4,11 @@ import DBus
 
 import Prelude
 import Data.Maybe (Maybe (..))
+import Control.Monad.Aff (runAff)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log, error)
+import Control.Monad.Eff.Uncurried (mkEffFn1)
+import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Console (CONSOLE, log, error, errorShow)
 
 main :: forall e. Eff (console :: CONSOLE, dbus :: DBUS | e) Unit
 main = do
@@ -14,15 +17,8 @@ main = do
     Nothing -> error "no client!"
     Just client -> case getService client (BusName "com.moneroworld.Monerodo") of
       Nothing -> error "no service!"
-      Just service ->
-        getInterface service (ObjectPath "/") (InterfaceName "com.moneroworld.FooInterface") $ \mError interface ->
-          case mError of
-            Nothing ->
-              if ( call interface (MemberName "Ayoo") [toVariant "foo"] $ \mError result ->
-                      case mError of
-                        Just e -> error $ "no member! " <> show e
-                        Nothing -> log $ "success! " <> result
-                  )
-                  then log "technically should work"
-                  else error "no member Ayoo!"
-            Just e -> error $ "no interface! " <> show e
+      Just service -> void $ runAff errorShow (\_ -> pure unit) $ do
+        interface <- getInterface service (ObjectPath "/") (InterfaceName "com.moneroworld.FooInterface")
+        liftEff $ on interface (MemberName "Bacon") $ \x -> log x
+        result <- call interface (MemberName "Ayoo") [toVariant "foo"]
+        liftEff $ log $ "success! " <> result
