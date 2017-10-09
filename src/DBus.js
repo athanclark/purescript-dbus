@@ -19,15 +19,15 @@ exports.getInterfaceImpl = function getInterfaceImpl (s,o,i,f) {
   s.getInterface(o,i,f);
 };
 
-exports.callImpl = function callImpl (i,m,xs,f) {
-  if (i.hasOwnProperty(m)) {
-    var args = xs.slice();
-    args.push(f);
-    i[m].apply(this,args);
-    return true;
-  } else {
-    return false;
-  }
+exports.callImpl = function callImpl (c,b,o,i,m,s,xs,f) {
+  c.invoke({
+    path: o,
+    destination: b,
+    interface: i,
+    member: m,
+    signature: s,
+    body: xs
+  }, f);
 };
 
 exports.onImpl = function onImpl (i,m,f) {

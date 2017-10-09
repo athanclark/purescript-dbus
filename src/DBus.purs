@@ -1,22 +1,26 @@
 module DBus
   ( connectSession, getService, getInterface, call, on, signalDesc, SignalDesc, exportInterface
   , InterfaceName (..), ObjectPath (..), MemberName (..), BusName (..), DBUS, Client, Service, Interface, InterfaceDesc
+  , emptyInput, addInput
   , module Sig
   ) where
 
-import DBus.Signature (Variant, Signature, MethodDesc, class IsVariant, fromVariant)
+import DBus.Signature (Variant, Signature, MethodDesc, class IsVariant, class IsValue, typeOf, typeCode, fromVariant, toVariant)
 import DBus.Signature as Sig
 
 import Prelude
 import Data.Nullable (Nullable, toMaybe)
-import Data.Function.Uncurried (Fn2, Fn4, runFn2, runFn4)
+import Data.Function.Uncurried (Fn2, runFn2)
 import Data.Foreign as F
 import Data.StrMap (StrMap)
 import Data.Maybe (Maybe (..))
 import Data.Either (Either (..))
+import Data.Tuple (Tuple (..))
+import Data.Monoid (mempty)
+import Type.Proxy (Proxy (..))
 import Control.Monad.Aff (Aff, makeAff, nonCanceler)
 import Control.Monad.Eff (kind Effect, Eff)
-import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, EffFn4, EffFn3, runEffFn3, runEffFn4, mkEffFn1, mkEffFn2)
+import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, EffFn4, EffFn3, EffFn8, runEffFn3, runEffFn4, runEffFn8, mkEffFn1, mkEffFn2)
 import Control.Monad.Eff.Exception (Error, error)
 
 
@@ -73,26 +77,38 @@ getInterface s o i =
 
 
 foreign import callImpl :: forall eff
-                         . Fn4
-                             Interface
+                         . EffFn8 (dbus :: DBUS | eff)
+                             Client
+                             BusName
+                             ObjectPath
+                             InterfaceName
                              MemberName
+                             Signature
                              (Array Variant)
                              (EffFn2 (dbus :: DBUS | eff) (Nullable Error) Variant Unit) -- FIXME do tuples apply extra args?
-                             Boolean
+                             Unit
 
+
+emptyInput :: Tuple Signature (Array Variant)
+emptyInput = Tuple mempty []
+
+addInput :: forall a. IsValue a => a -> Tuple Signature (Array Variant) -> Tuple Signature (Array Variant)
+addInput x (Tuple s xs) =
+  let s' = typeCode (typeOf (Proxy :: Proxy a))
+  in  Tuple (s <> s') (xs <> [toVariant x])
 
 
 call :: forall eff result
       . IsVariant result
-     => Interface -> MemberName -> Array Variant
+     => Client -> BusName -> ObjectPath -> InterfaceName -> MemberName -> Tuple Signature (Array Variant)
      -> Aff (dbus :: DBUS | eff) result
-call i m@(MemberName m') vs =
+call c b o i m@(MemberName m') (Tuple s xs) =
   makeAff \evoke -> do
-    let result = runFn4 callImpl i m vs $ mkEffFn2 \e r -> case fromVariant r of
-                   Nothing -> evoke $ Left $ error $ "Could not marshall return variant into type: " <> F.typeOf (F.toForeign r)
-                   Just r' -> evoke (Right r')
-    unless result $
-      evoke $ Left $ error $ "Member name " <> m' <> " does not exist in interface."
+    runEffFn8 callImpl c b o i m s xs $ mkEffFn2 \mE v -> case toMaybe mE of
+      Nothing -> case fromVariant v of
+        Nothing -> evoke $ Left $ error $ "Could not marshall return variant into type: " <> F.typeOf (F.toForeign v)
+        Just r -> evoke (Right r)
+      Just e -> evoke (Left e)
     pure nonCanceler
 
 

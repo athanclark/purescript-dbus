@@ -1,6 +1,6 @@
 module DBus.Signature
   ( Signature, Variant, class IsVariant, toVariant, fromVariant, class IsValue, typeOf, class IsKey
-  , MethodDesc, Method, class AutoMethod, types, autoMethod, DBusType
+  , MethodDesc, Method, class AutoMethod, types, typeCode, autoMethod, DBusType
   ) where
 
 import Prelude
@@ -15,6 +15,7 @@ import Data.Map (Map)
 import Data.Map as Map
 import Data.Traversable (traverse)
 import Data.Tuple.Native (T4, t4)
+import Data.Monoid (class Monoid)
 import Control.Monad.Eff (Eff, kind Effect)
 import Control.Monad.Eff.Uncurried (EffFn1)
 import Type.Proxy (Proxy (..))
@@ -34,6 +35,13 @@ data DBusType
   | DBusStructure (Array DBusType)
 
 newtype Signature = Signature String
+
+instance semigroupSignature :: Semigroup Signature where
+  append (Signature x) (Signature y) = Signature (x <> y)
+
+instance monoidSignature :: Monoid Signature where
+  mempty = Signature ""
+
 
 typeCode :: DBusType -> Signature
 typeCode t = Signature $ case t of
