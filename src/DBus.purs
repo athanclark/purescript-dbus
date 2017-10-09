@@ -1,7 +1,7 @@
 module DBus
   ( connectSession, getService, getInterface, call, on, signalDesc, SignalDesc, exportInterface
   , InterfaceName (..), ObjectPath (..), MemberName (..), BusName (..), DBUS, Client, Service, Interface, InterfaceDesc
-  , emptyInput, addInput
+  , nil, arg
   , module Sig
   ) where
 
@@ -89,11 +89,11 @@ foreign import callImpl :: forall eff
                              Unit
 
 
-emptyInput :: Tuple Signature (Array Variant)
-emptyInput = Tuple mempty []
+nil :: Tuple Signature (Array Variant)
+nil = Tuple mempty []
 
-addInput :: forall a. IsValue a => a -> Tuple Signature (Array Variant) -> Tuple Signature (Array Variant)
-addInput x (Tuple s xs) =
+arg :: forall a. IsValue a => Tuple Signature (Array Variant) -> a -> Tuple Signature (Array Variant)
+arg (Tuple s xs) x =
   let s' = typeCode (typeOf (Proxy :: Proxy a))
   in  Tuple (s <> s') (xs <> [toVariant x])
 

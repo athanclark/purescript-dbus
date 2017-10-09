@@ -21,7 +21,7 @@ main = do
       Just service -> void $ runAff resolve $ do
         interface <- getInterface service (ObjectPath "/") (InterfaceName "com.moneroworld.FooInterface")
         liftEff $ on interface (MemberName "Bacon") $ \x -> log x
-        result <- call client (BusName "com.moneroworld.Monerodo") (ObjectPath "/") (InterfaceName "com.moneroworld.FooInterface") (MemberName "Ayoo") (addInput "foo" emptyInput)
+        result <- call client (BusName "com.moneroworld.Monerodo") (ObjectPath "/") (InterfaceName "com.moneroworld.FooInterface") (MemberName "Ayoo") (nil `arg` "foo")
         liftEff $ log $ "success! " <> result
   where
     resolve (Left e) = errorShow e
