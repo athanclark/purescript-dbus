@@ -10,6 +10,7 @@ import DBus.Signature as Sig
 import Prelude
 import Data.Nullable (Nullable, toMaybe)
 import Data.Function.Uncurried (Fn2, Fn4, runFn2, runFn4)
+import Data.Foreign as F
 import Data.StrMap (StrMap)
 import Data.Maybe (Maybe (..))
 import Data.Either (Either (..))
@@ -88,7 +89,7 @@ call :: forall eff result
 call i m@(MemberName m') vs =
   makeAff \evoke -> do
     let result = runFn4 callImpl i m vs $ mkEffFn2 \e r -> case fromVariant r of
-                   Nothing -> evoke $ Left $ error $ "Could not marshall return variant into type"
+                   Nothing -> evoke $ Left $ error $ "Could not marshall return variant into type: " <> F.typeOf (F.toForeign r)
                    Just r' -> evoke (Right r')
     unless result $
       evoke $ Left $ error $ "Member name " <> m' <> " does not exist in interface."
