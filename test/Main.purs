@@ -4,6 +4,7 @@ import DBus
 
 import Prelude
 import Data.Maybe (Maybe (..))
+import Data.Either (Either (..))
 import Control.Monad.Aff (runAff)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Uncurried (mkEffFn1)
@@ -17,8 +18,11 @@ main = do
     Nothing -> error "no client!"
     Just client -> case getService client (BusName "com.moneroworld.Monerodo") of
       Nothing -> error "no service!"
-      Just service -> void $ runAff errorShow (\_ -> pure unit) $ do
+      Just service -> void $ runAff resolve $ do
         interface <- getInterface service (ObjectPath "/") (InterfaceName "com.moneroworld.FooInterface")
         liftEff $ on interface (MemberName "Bacon") $ \x -> log x
-        result <- call interface (MemberName "Ayoo") [toVariant "foo"]
+        result <- call client (BusName "com.moneroworld.Monerodo") (ObjectPath "/") (InterfaceName "com.moneroworld.FooInterface") (MemberName "Ayoo") (addInput "foo" emptyInput)
         liftEff $ log $ "success! " <> result
+  where
+    resolve (Left e) = errorShow e
+    resolve _        = pure unit
