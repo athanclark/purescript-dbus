@@ -90,7 +90,7 @@ call i m@(MemberName m') vs =
     let result = runFn4 callImpl i m vs $ mkEffFn2 \e r -> case fromVariant r of
                    Nothing -> evoke $ Left $ error $ "Could not marshall return variant into type"
                    Just r' -> evoke (Right r')
-    when result $
+    unless result $
       evoke $ Left $ error $ "Member name " <> m' <> " does not exist in interface."
     pure nonCanceler
 
