@@ -27,7 +27,10 @@ exports.callImpl = function callImpl (c,b,o,i,m,s,xs,f) {
     member: m,
     signature: s,
     body: xs
-  }, f);
+  }, function (me,x) {
+    if (me) console.log('call error!',me);
+    f(me,x);
+  });
 };
 
 exports.onImpl = function onImpl (i,m,f) {
