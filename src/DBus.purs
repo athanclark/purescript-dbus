@@ -17,6 +17,8 @@ import Data.Maybe (Maybe (..))
 import Data.Either (Either (..))
 import Data.Tuple (Tuple (..))
 import Data.Monoid (mempty)
+import Data.Array as Array
+import Data.Traversable (traverse_)
 import Type.Proxy (Proxy (..))
 import Control.Monad.Aff (Aff, makeAff, nonCanceler)
 import Control.Monad.Eff (kind Effect, Eff)
@@ -85,7 +87,7 @@ foreign import callImpl :: forall eff
                              MemberName
                              Signature
                              (Array Variant)
-                             (EffFn2 (dbus :: DBUS | eff) (Nullable Error) Variant Unit) -- FIXME do tuples apply extra args?
+                             (EffFn2 (dbus :: DBUS | eff) (Nullable (Array Error)) Variant Unit) -- FIXME do tuples apply extra args?
                              Unit
 
 
@@ -104,11 +106,12 @@ call :: forall eff result
      -> Aff (dbus :: DBUS | eff) result
 call c b o i m@(MemberName m') (Tuple s xs) =
   makeAff \evoke -> do
-    runEffFn8 callImpl c b o i m s xs $ mkEffFn2 \mE v -> case toMaybe mE of
-      Nothing -> case fromVariant v of
-        Nothing -> evoke $ Left $ error $ "Could not marshall return variant into type: " <> F.typeOf (F.toForeign v)
-        Just r -> evoke (Right r)
-      Just e -> evoke (Left e)
+    runEffFn8 callImpl c b o i m s xs $ mkEffFn2 \mE v ->
+      case toMaybe mE of
+        Nothing -> case fromVariant v of
+          Nothing -> evoke $ Left $ error $ "Could not marshall return variant into type: " <> F.typeOf (F.toForeign v)
+          Just r -> evoke (Right r)
+        Just es -> traverse_ (\e -> evoke (Left e)) es
     pure nonCanceler
 
 

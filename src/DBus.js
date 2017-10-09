@@ -28,7 +28,6 @@ exports.callImpl = function callImpl (c,b,o,i,m,s,xs,f) {
     signature: s,
     body: xs
   }, function (me,x) {
-    if (me) console.log('call error!',me);
     f(me,x);
   });
 };
