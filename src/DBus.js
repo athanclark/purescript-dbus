@@ -52,3 +52,8 @@ exports.exportInterfaceImpl = function exportInterfaceImpl (s,o,id) {
   }
   s.exportInterface(impl,o,desc);
 };
+
+
+exports.stringify = function stringifyImpl (x) {
+  return JSON.stringify(x);
+};
