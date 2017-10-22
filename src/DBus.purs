@@ -109,8 +109,8 @@ call c b o i m@(MemberName m') (Tuple s xs) =
     runEffFn8 callImpl c b o i m s xs $ mkEffFn2 \mE v ->
       case toMaybe mE of
         Nothing -> case fromVariant v of
-          Nothing -> evoke $ Left $ error $ "Could not marshall return variant into type: " <> F.typeOf (F.toForeign v) <> stringify v
-          Just r -> evoke (Right r)
+          Left e -> evoke $ Left $ error $ "Could not marshall return variant into type: " <> F.typeOf (F.toForeign v) <> "; " <> stringify v <> "; " <> e
+          Right r -> evoke (Right r)
         Just es -> traverse_ (\e -> evoke (Left e)) es
     pure nonCanceler
 
@@ -121,12 +121,10 @@ foreign import onImpl :: forall eff
 on :: forall eff a
     . IsVariant a
    => Interface -> MemberName
-   -> (a -> Eff (dbus :: DBUS | eff) Unit)
+   -> (Either String a -> Eff (dbus :: DBUS | eff) Unit)
    -> Eff (dbus :: DBUS | eff) Unit
 on i m f =
-  runEffFn3 onImpl i m $ mkEffFn1 \v -> case fromVariant v of
-    Nothing -> pure unit
-    Just a -> f a
+  runEffFn3 onImpl i m $ mkEffFn1 \v -> f (fromVariant v)
 
 
 foreign import data SignalDesc :: Type

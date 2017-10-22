@@ -6,6 +6,7 @@ module DBus.Signature
 import Prelude
 import Data.String as String
 import Data.Maybe (Maybe (..))
+import Data.Either (Either (..))
 import Data.Tuple (Tuple (..))
 import Data.Array as Array
 import Data.Foreign (toForeign, isArray)
@@ -67,48 +68,52 @@ foreign import data Variant :: Type
 
 class IsVariant a where
   toVariant :: a -> Variant
-  fromVariant :: Variant -> Maybe a
+  fromVariant :: Variant -> Either String a
 
 instance isVariantBoolean :: IsVariant Boolean where
   toVariant = unsafeCoerce
   fromVariant x
-    | F.typeOf (toForeign x) == "boolean" = Just (unsafeCoerce x)
-    | otherwise                           = Nothing
+    | F.typeOf (toForeign x) == "boolean" = Right (unsafeCoerce x)
+    | otherwise                           = Left "Not a boolean"
 
 instance isVariantInt :: IsVariant Int where
   toVariant = unsafeCoerce
   fromVariant x
-    | F.typeOf (toForeign x) == "number" && isInteger (unsafeCoerce x) = Just (unsafeCoerce x)
-    | otherwise                                                        = Nothing
+    | F.typeOf (toForeign x) == "number" && isInteger (unsafeCoerce x) = Right (unsafeCoerce x)
+    | otherwise                                                        = Left "Not a Int or isInteger"
 
 instance isVariantNumber :: IsVariant Number where
   toVariant = unsafeCoerce
   fromVariant x
-    | F.typeOf (toForeign x) == "number" && not (isInteger $ unsafeCoerce x) = Just (unsafeCoerce x)
-    | otherwise                                                              = Nothing
+    | F.typeOf (toForeign x) == "number" && not (isInteger $ unsafeCoerce x) = Right (unsafeCoerce x)
+    | otherwise                                                              = Left "Not a Number or not isInteger"
 
 instance isVariantString :: IsVariant String where
   toVariant = unsafeCoerce
   fromVariant x
-    | F.typeOf (toForeign x) == "string" = Just (unsafeCoerce x)
-    | otherwise                          = Nothing
+    | F.typeOf (toForeign x) == "string" = Right (unsafeCoerce x)
+    | otherwise                          = Left "Not a string"
 
 instance isVariantArray :: IsVariant a => IsVariant (Array a) where
   toVariant = unsafeCoerce
   fromVariant x
-    | isArray (toForeign x) = Just (unsafeCoerce x)
-    | otherwise             = Nothing
+    | isArray (toForeign x) = Right (unsafeCoerce x)
+    | otherwise             = Left "Not an array"
 
 instance isVariantTuple :: (IsVariant a, IsVariant b) => IsVariant (Tuple a b) where
   toVariant (Tuple x y) = unsafeCoerce [toVariant x, toVariant y]
   fromVariant xs
     | isArray (toForeign xs) = do
-        {head:h1,tail} <- Array.head (unsafeCoerce xs)
-        {head:h2} <- Array.head tail
+        {head:h1,tail} <- case Array.head (unsafeCoerce xs) of
+                            Nothing -> Left "no first element"
+                            Just x -> pure x
+        {head:h2} <- case Array.head tail of
+                       Nothing -> Left "no second element"
+                       Just x -> pure x
         x <- fromVariant h1
         y <- fromVariant h2
         pure (Tuple x y)
-    | otherwise = Nothing
+    | otherwise = Left "Not an array - tuple"
 
 instance isVariantMap :: (IsKey k, IsVariant a, Ord k) => IsVariant (Map k a) where
   toVariant xs = unsafeCoerce (map (\(Tuple k v) -> unsafeCoerce [toVariant k, toVariant v]
@@ -117,20 +122,22 @@ instance isVariantMap :: (IsKey k, IsVariant a, Ord k) => IsVariant (Map k a) wh
     | isArray (toForeign xs) = do
         kvs <-
            traverse (\kv -> if (isArray (toForeign kv))
-                              then do {head:k',tail} <- Array.head (unsafeCoerce kv)
-                                      {head:v'} <- Array.head tail
+                              then do {head:k',tail} <- case Array.head (unsafeCoerce kv) of
+                                                          Nothing -> Left "no first element"
+                                                          Just x -> pure x
+                                      {head:v'} <- case Array.head tail of
+                                                     Nothing -> Left "no second element"
+                                                     Just x -> pure x
                                       k <- fromVariant k'
                                       v <- fromVariant v'
                                       pure (Tuple k v)
-                              else Nothing
+                              else Left "Not an array - map elems"
                     ) (unsafeCoerce xs :: Array Variant)
         pure (Map.fromFoldable kvs)
-    | otherwise = Nothing
+    | otherwise = Left "Not an array - map"
 
 class IsVariant a <= IsValue a where
   typeOf :: Proxy a -> DBusType
-  -- toValue :: a -> Value
-  -- fromValue :: Value -> Maybe a
 
 instance isValueBoolean :: IsValue Boolean where
   typeOf Proxy = DBusBoolean
